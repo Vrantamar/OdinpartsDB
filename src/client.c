@@ -12,11 +12,11 @@
 #define FALSE 0
 #define TRUE 1
 #define DEBUG_USER_INPUT 0
-#define CONN_STRING "172.17.0.2:1521/XEPDB1"    // this mf took 2h of research to find
+#define CONN_STRING "172.17.0.2:1521/XEPDB1"    // this 
 
 static dpiErrorInfo error_info;
 
-//prints errors (duh)
+//prints errors
 void printError(dpiContext *context, dpiErrorInfo *ErrorInfo){
     dpiContext_getError(context, ErrorInfo);
     fprintf(stderr,"-----------------------------------------\n");
@@ -55,7 +55,7 @@ int buff_out(char *dest, char *buffer, size_t *dest_size){
 }
 
 //User authentication dummy routine
-//REMEMBER TO FREE THE MEMORY
+//not used. also maybe memory leaks
 void get_user_info(char *username, char *password){
     size_t size=0;
     char buffer[32];
@@ -122,56 +122,84 @@ int conn_setup(dpiConn *conn, dpiContext *context){
         return EXIT_FAILURE;
     }
     printf("[CONNECTION CREATED SUCCESSFULLY]\n");
-    
+
+    if(dpiConn_ping(conn)==DPI_FAILURE){
+        fprintf(stderr,"[Connection is not healthy]\n");
+    }
+    else fprintf(stdout,"[HEALTHY CONNECTION]\n");
     return 0;
 }
 
-int create_table(dpiConn *conn){
+int statement_creation(dpiConn *conn, dpiContext *context){
     int choice=-1;
-    fprintf(stdout,"____________________\n");
-    fprintf(stdout,"|| Table creation ||\n");
-    fprintf(stdout,"‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\n");
-    fprintf(stdout,"Do you wish to write SQL code now (1) or fetch from file (2)? [Enter 0 to abort].\n");
+    char buffer[64], *user_SQL=malloc(sizeof(char));
+    user_SQL[0]='\0';
+    memset(buffer,48,sizeof(buffer));
+    bool FLAG=TRUE, FLAG_1=TRUE;
+    int size=0;
+    const char *string;
+    dpiStmt *statement;
+
+    fprintf(stdout,"________________________\n");
+    fprintf(stdout,"|| Statement creation ||\n");
+    fprintf(stdout,"‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\n");
+    fprintf(stdout,"Do you wish to continue? [Enter 0 to return to main menu].\n");
     fflush(stdout);
     fscanf(stdin,"%d", &choice);
 
+    if(choice==0) return 1;
     if(choice==1){
-        char buffer[64], *user_statement=malloc(sizeof(char));
-        user_statement[0]='\0';
-        memset(buffer,48,sizeof(buffer));
-        bool FLAG=TRUE;
-        int size=0;
-        
-        fprintf(stdout,"Insert your SQL statement. Enter no characters to end the input.\n");
-        fflush(stdout);
-        //consuming buffer newline, because fscanf and fgets differences.
-        while ((getchar()) != '\n');
-        while(FLAG){
-            if(fgets(buffer,(int)sizeof(buffer),stdin)==NULL){
-                perror("Input Error\n");
-                break;;
+        string="INSERT INTO UTENTE VALUES ('abdiel.koepp','Enrico','Lindgren','llockman@example.net','a26c4bbbfbabb03ba220','0.00','0.00','0.00','0.00','0','2008-09-07')";
+        FLAG_1=FALSE;
+    }
+
+    fprintf(stdout,"Insert your SQL statement. Enter no characters to end the input.\n");
+    fflush(stdout);
+    //consuming buffer newline, because fscanf and fgets differences.
+    //AGAIN USER INPUTS CREATES ISSUES WITH odpi-c -.-'
+    while ((getchar()) != '\n');
+    while(FLAG && FLAG_1){
+        if(fgets(buffer,(int)sizeof(buffer),stdin)==NULL){
+            perror("Input Error\n");
+            break;;
+        }
+        else{
+            if(buffer[0]=='\n'){
+                FLAG=FALSE;
             }
             else{
-                if(buffer[0]=='\n'){
-                    FLAG=FALSE;
-                }
-                else{
-                    size=size+strlen(buffer)+1;
-                    user_statement=realloc(user_statement,size*sizeof(char));
-                    strcat(user_statement,buffer);
-                }
+                size=size+strlen(buffer);
+                user_SQL=realloc(user_SQL,size*sizeof(char));
+                strcat(user_SQL,buffer);
             }
         }
-
-        fprintf(stdout,"You have written the following:\n\n%s",user_statement);
-
     }
-    else if(choice==2){
+
+    //CHECK IF CONNECTION IS HEALTHY
+    if(dpiConn_ping(conn)==DPI_FAILURE){
+        fprintf(stderr,"[Connection is not healthy]\n");
+    }
+    else fprintf(stdout,"[HEALTHY CONNECTION]\n");
+    
+    if(FLAG_1){
+        fprintf(stdout,"You have inserted the following:\n\n%s",user_SQL);
+        if (dpiConn_prepareStmt(conn, 0, user_SQL, strlen(user_SQL), NULL, 0, &statement)!=DPI_SUCCESS){
+            printError(context,&error_info);
+            return -1;
+        }
+        else fprintf(stdout,"[STATEMENT SUCCESSFULLY PREPARED]\n");
+
     }
     else{
-        fprintf(stdout,"[ABORTING]...");
-        return 1;
+        if (dpiConn_prepareStmt(conn, 0, string, strlen(string), NULL, 0, &statement)!=DPI_SUCCESS){
+            printError(context,&error_info);
+            return -1;
+        }
+        else fprintf(stdout,"[STATEMENT SUCCESSFULLY PREPARED]\n");
     }
+    
+    fflush(stdout);
+
     return 0;
 }
 
@@ -191,23 +219,28 @@ int main(int argc, char** argv){
         fprintf(stdout,"___________________________________\n");
         fprintf(stdout,"|| Select a task to be executed: ||\n");
         fprintf(stdout,"‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\n");
-        fprintf(stdout,"\t1. Create table\n");
-        fprintf(stdout,"\t2. Insert rows\n");
-        fprintf(stdout,"\t3. Select some rows\n");
-        fprintf(stdout,"\t4. Scroll rows from table\n");
+        fprintf(stdout,"\t1. Create statement\n");
+        fprintf(stdout,"\t2. Import statement\n");
+        fprintf(stdout,"\t3. [DEBUG] Check connection health\n");
         fprintf(stdout,"\t0. Exit\n");
         fprintf(stdout,"~: ");
         fflush(stdout);
 
         fscanf(stdin,"%d",&choice);
         if(choice==1){
-            if(create_table(conn)){
-                perror("Unable to Create Table.");
+            if(statement_creation(conn,context)==-1){
+                printf("Unable to execute statement.\n");
             }
         }
 
         if(choice==2){}
-        if(choice==3){}
+        if(choice==3){
+            if(dpiConn_ping(conn)==DPI_FAILURE){
+                fprintf(stderr,"[Connection is not healthy]\n");
+            }
+            else fprintf(stdout,"[HEALTHY CONNECTION]\n");
+            
+        }
         if(choice==4){}
 
     }
