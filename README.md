@@ -28,6 +28,6 @@ To compile the code, simply edit the following commands to suit your needs:
 `gcc -o client ../src/client.c -I/path_to_folder/odpi-main/include -L/path_to_folder/odpi-main/lib -lodpic`
 
 #### Changelog
-14-Jan-2023: client executable succeffully connect to docker instance of an Oracle21XE database.
+14-Jan-2023: client executable can successfully connect to docker instance of an Oracle21XE database.
 
 --Akvarion
