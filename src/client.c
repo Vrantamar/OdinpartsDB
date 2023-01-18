@@ -15,6 +15,8 @@
 #define CONN_STRING "172.17.0.2:1521/XEPDB1"    // this 
 
 static dpiErrorInfo error_info;
+static dpiContext *context=NULL;
+
 
 //prints errors
 void printError(dpiContext *context, dpiErrorInfo *ErrorInfo){
@@ -97,39 +99,6 @@ void get_user_info(char *username, char *password){
 
 }
 
-int conn_setup(dpiConn *conn, dpiContext *context){
-    char *userName=NULL;
-    char *password=NULL;
-
-    if(DEBUG_USER_INPUT){
-        //Doesn't work, don't know why, throws segmentation fault. Maybe strings format or encoding?
-        get_user_info(userName,password);
-    }
-    else{
-        userName="ODINPARTS";
-        password="odinparts";
-    }
-
-    if(dpiContext_createWithParams(DPI_MAJOR_VERSION, DPI_MINOR_VERSION, NULL,&context,&error_info)!=DPI_SUCCESS){
-        printError(context,&error_info);
-        return EXIT_FAILURE;
-    }
-    printf("[CONTEXT CREATED SUCCESSFULLY]\n");
-
-    //CONNECTION CREATION
-    if(dpiConn_create(context, userName, strlen(userName), password, strlen(password), CONN_STRING, strlen(CONN_STRING),NULL,NULL,&conn)!=DPI_SUCCESS){
-        printError(context,&error_info);
-        return EXIT_FAILURE;
-    }
-    printf("[CONNECTION CREATED SUCCESSFULLY]\n");
-
-    if(dpiConn_ping(conn)==DPI_FAILURE){
-        fprintf(stderr,"[Connection is not healthy]\n");
-    }
-    else fprintf(stdout,"[HEALTHY CONNECTION]\n");
-    return 0;
-}
-
 int statement_creation(dpiConn *conn, dpiContext *context){
     int choice=-1;
     char buffer[64], *user_SQL=malloc(sizeof(char));
@@ -143,7 +112,7 @@ int statement_creation(dpiConn *conn, dpiContext *context){
     fprintf(stdout,"________________________\n");
     fprintf(stdout,"|| Statement creation ||\n");
     fprintf(stdout,"‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\n");
-    fprintf(stdout,"Do you wish to continue? [Enter 0 to return to main menu].\n");
+    fprintf(stdout,"Do you wish to continue? [Enter 0 to return to main menu].\n~: ");
     fflush(stdout);
     fscanf(stdin,"%d", &choice);
 
@@ -205,15 +174,38 @@ int statement_creation(dpiConn *conn, dpiContext *context){
 
 int main(int argc, char** argv){
     int choice =-1;
-    dpiStmt *statement;
     dpiConn *conn;
-    dpiContext *context=NULL;
+    dpiStmt *statement;
     //dpiErrorInfo errorInfo;
-    
-    if(conn_setup(conn, context)!=0){
-        perror("Errors occurred while connecting to DB instance.\n");
+    char *userName=NULL;
+    char *password=NULL;
+
+    if(DEBUG_USER_INPUT){
+        //Doesn't work, don't know why, throws segmentation fault. Maybe strings format or encoding?
+        get_user_info(userName,password);
+    }
+    else{
+        userName="ODINPARTS";
+        password="odinparts";
+    }
+
+    if(dpiContext_createWithParams(DPI_MAJOR_VERSION, DPI_MINOR_VERSION, NULL,&context,&error_info)!=DPI_SUCCESS){
+        printError(context,&error_info);
         return EXIT_FAILURE;
     }
+    printf("[CONTEXT CREATED SUCCESSFULLY]\n");
+
+    //CONNECTION CREATION
+    if(dpiConn_create(context, userName, strlen(userName), password, strlen(password), CONN_STRING, strlen(CONN_STRING),NULL,NULL,&conn)!=DPI_SUCCESS){
+        printError(context,&error_info);
+        return EXIT_FAILURE;
+    }
+    printf("[CONNECTION CREATED SUCCESSFULLY]\n");
+
+    if(dpiConn_ping(conn)==DPI_FAILURE){
+        fprintf(stderr,"[Connection is not healthy]\n");
+    }
+    else fprintf(stdout,"[HEALTHY CONNECTION]\n");
 
     while(choice!=0){
         fprintf(stdout,"___________________________________\n");
