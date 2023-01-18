@@ -117,16 +117,17 @@ int statement_creation(dpiConn *conn, dpiContext *context){
     fscanf(stdin,"%d", &choice);
 
     if(choice==0) return 1;
-    if(choice==1){
-        string="INSERT INTO UTENTE VALUES ('abdiel.koepp','Enrico','Lindgren','llockman@example.net','a26c4bbbfbabb03ba220','0.00','0.00','0.00','0.00','0','2008-09-07')";
-        FLAG_1=FALSE;
-    }
+    // if(choice==1){
+    //     string="INSERT INTO \"ODINPARTS\".UTENTE (USERNAME,NOME,COGNOME,MAIL,PASSWORD,VOTO_SPED,VOTO_COMM,VOTO_DESC,FEEDBACK_N,REGISTRATO) VALUES ('aliza57','Darius','Mills','hickle.magnus@example.net','be0f4d2519c472badefc','6.45','7.00','5.00','5','03-DEC-94')";
+    //     FLAG_1=FALSE;
+    // }
 
     fprintf(stdout,"Insert your SQL statement. Enter no characters to end the input.\n");
     fflush(stdout);
+
     //consuming buffer newline, because fscanf and fgets differences.
-    //AGAIN USER INPUTS CREATES ISSUES WITH odpi-c -.-'
     while ((getchar()) != '\n');
+    
     while(FLAG && FLAG_1){
         if(fgets(buffer,(int)sizeof(buffer),stdin)==NULL){
             perror("Input Error\n");
@@ -150,25 +151,32 @@ int statement_creation(dpiConn *conn, dpiContext *context){
     }
     else fprintf(stdout,"[HEALTHY CONNECTION]\n");
     
-    if(FLAG_1){
-        fprintf(stdout,"You have inserted the following:\n\n%s",user_SQL);
-        if (dpiConn_prepareStmt(conn, 0, user_SQL, strlen(user_SQL), NULL, 0, &statement)!=DPI_SUCCESS){
+    //PREPARING STATEMENT
+    if (dpiConn_prepareStmt(conn, 0, string, strlen(string), NULL, 0, &statement)!=DPI_SUCCESS){
             printError(context,&error_info);
             return -1;
         }
-        else fprintf(stdout,"[STATEMENT SUCCESSFULLY PREPARED]\n");
-
-    }
-    else{
-        if (dpiConn_prepareStmt(conn, 0, string, strlen(string), NULL, 0, &statement)!=DPI_SUCCESS){
-            printError(context,&error_info);
-            return -1;
-        }
-        else fprintf(stdout,"[STATEMENT SUCCESSFULLY PREPARED]\n");
-    }
-    
+    else fprintf(stdout,"[STATEMENT SUCCESSFULLY PREPARED]\n");
     fflush(stdout);
 
+    //EXECUTING STATEMENT
+    if (dpiStmt_execute(statement, DPI_MODE_EXEC_DEFAULT, NULL) != DPI_SUCCESS){
+        printError(context,&error_info);
+        return -1;
+    }
+    else fprintf(stdout,"[STATEMENT SUCCESSFULLY EXECUTED]\n");
+    fflush(stdout);
+
+    //COMMITTING CHANGES
+    if (dpiConn_commit(conn) < 0){
+        printError(context,&error_info);
+        return -1;
+    }
+    else fprintf(stdout,"[COMMIT WAS SUCCESSFUL]\n");
+    
+    //CLEANING UP 
+    dpiStmt_release(statement);
+    
     return 0;
 }
 
