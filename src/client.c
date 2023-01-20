@@ -29,33 +29,6 @@ void printError(dpiContext *context, dpiErrorInfo *ErrorInfo){
     fflush(stderr);
 }
 
-//Not used.take a string out from the buffer and copy it in a string.
-int buff_out(char *dest, char *buffer, size_t *dest_size){
-    int i;
-    bool FLAG=FALSE;
-    //foreach charcter in the string
-    for(i=0;i<strlen(buffer)&&!FLAG;i++){
-        //check if this is the terminator and set the FLAG
-        if(buffer[i]=='\0'){
-           FLAG=TRUE;
-        }
-        //if the size of destination is smaller than what we need to copy, reallocate memory
-        if(*dest_size==(size_t)i){
-            dest=(char*)realloc(dest,(*dest_size+1)*sizeof(char));
-        }
-        dest[i]=buffer[i];
-    }
-    if(dest[i]=='\0'){
-        fprintf(stdout,"string has a null terminator");
-        return 0;
-    }
-    else {
-        fprintf(stdout, "string does not have a null terminator\n");
-        return -1;
-    }
-
-}
-
 //User authentication dummy routine
 //not used. also maybe memory leaks
 void get_user_info(char *username, char *password){
@@ -97,6 +70,152 @@ void get_user_info(char *username, char *password){
     fflush(stdout);
     fflush(stdin);
 
+}
+
+/*
+ *      Remove given section from string. Negative len means remove
+ *      everything up to the end. Credits to M Ohem @ stackoverflow
+ *      
+ */
+int str_cut(char *str, int begin, int len)
+{
+    int l = strlen(str);
+
+    if (len < 0) len = l - begin;
+    if (begin + len > l) len = l - begin;
+    memmove(str + begin, str + begin + len, l - len + 1);
+
+    return len;
+}
+
+int statement_exec_routine(dpiConn *conn, dpiContext *context, char *SQL_string){
+    dpiStmt *statement;
+    uint32_t bufferRowIndex;
+    int found;
+    //CHECK IF CONNECTION IS HEALTHY
+    if(dpiConn_ping(conn)==DPI_FAILURE){
+        fprintf(stderr,"[Connection is not healthy]\n");
+        return -1;
+    }
+    else fprintf(stdout,"[HEALTHY CONNECTION]\n");
+
+    //PREPARING STATEMENT
+    if (dpiConn_prepareStmt(conn, 0, SQL_string, strlen(SQL_string), NULL, 0, &statement)!=DPI_SUCCESS){
+
+        }
+    else fprintf(stdout,"[STATEMENT SUCCESSFULLY PREPARED]\n");
+    fflush(stdout);
+    
+        //EXECUTING STATEMENT
+    if (dpiStmt_execute(statement, DPI_MODE_EXEC_DEFAULT, NULL) != DPI_SUCCESS){
+        printError(context,&error_info);
+        return -1;
+    }
+    else fprintf(stdout,"[STATEMENT SUCCESSFULLY EXECUTED]\n");
+    fflush(stdout);
+    
+    //To do: loop to display db stdout response messages and rows.
+    while (0) {
+        if (dpiStmt_fetch(statement, &found, &bufferRowIndex) < 0){
+            printError(context,&error_info);
+            return -1;
+            }
+        if (!found)
+            break;
+    }
+    
+    
+    //COMMITTING CHANGES
+    if (dpiConn_commit(conn) < 0){
+        printError(context,&error_info);
+        return -1;
+    }
+    else fprintf(stdout,"[COMMIT WAS SUCCESSFUL]\n");
+    
+    //CLEANING UP 
+    dpiStmt_release(statement);
+
+
+    return 0;
+}
+
+int import_from_file(dpiConn *conn, dpiContext *context){
+    FILE *fp;
+    char path[32], buffer[64], **SQL_string=malloc(sizeof(char));
+    int choice=-1,size=0, statement_counter=0;
+    bool FLAG=TRUE, FLAG_1=FALSE;
+
+    SQL_string[statement_counter]=malloc(sizeof(char));
+
+    fprintf(stdout,"________________________\n");
+    fprintf(stdout,"|| Import statements  ||\n");
+    fprintf(stdout,"‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\n");
+    fprintf(stdout,"Do you wish to continue? [Enter 0 to return to main menu].\n~: ");
+
+    fscanf(stdin,"%d", &choice);
+    while ((getchar()) != '\n');
+
+    if(choice==0) return 1;
+    
+    fprintf(stdout,"Insert the path to your file containing your SQL queries.\nIf the file is within the local directory, provide the name file only.\n~:");
+
+    fscanf(stdin,"%s",path);
+    while ((getchar()) != '\n');
+    
+    if((fp=fopen(path,"r"))==NULL){
+        printf("[ERROR]\nFile does not exists/Wrong path.\n");
+        return -1;
+    }
+    
+    //consuming buffer newline, because fscanf and fgets differences.
+    //while ((getchar()) != '\n');
+
+    while(fgets(buffer,(int)sizeof(buffer),fp)!=NULL){
+        int i,j=0;
+        //checking if this is the last line of a SQL statement
+        for(i=0;i<strlen(buffer);i++){
+            //have i reached the end of the SQL query? If so, set the flag.
+            if(buffer[i]==';'){
+                j=i;
+                FLAG_1=TRUE;
+            }
+            //CHECK IF THE ";" IS IN A STRING->this means cheching it the occurrencies of \' before it are odd or even. 
+            if(FLAG_1){
+                int occurrencies=0;
+                for(i=0;i<j;i++){
+                    if(buffer[i]=='\''){
+                        occurrencies++;
+                    }
+                }
+                if(occurrencies%2!=0){
+                    //; is inside a string-> fake positive
+                    FLAG_1=FALSE;
+                }
+            }
+        }
+
+        size=size+strlen(buffer);
+        if(FLAG_1){
+            //reached the end of the query, need to remove the ";"
+            //size of what to append and allocate changes accordingly
+            size--;
+            str_cut(buffer,j,1);
+        }
+
+        SQL_string[statement_counter]=realloc(SQL_string[statement_counter],size*sizeof(char));
+        strcat(SQL_string[statement_counter],buffer);
+
+        if(FLAG_1){
+            //changing memory pointer in memory, allocating new element...
+            statement_counter++;
+            SQL_string[statement_counter]=malloc(sizeof(char));
+            //RESET SIGNAL
+            FLAG_1=FALSE;
+        }
+    }
+    //I have all the statements, it's time to run them all.
+
+    return 0;
 }
 
 int statement_creation(dpiConn *conn, dpiContext *context){
@@ -145,37 +264,11 @@ int statement_creation(dpiConn *conn, dpiContext *context){
         }
     }
 
-    //CHECK IF CONNECTION IS HEALTHY
-    if(dpiConn_ping(conn)==DPI_FAILURE){
-        fprintf(stderr,"[Connection is not healthy]\n");
-    }
-    else fprintf(stdout,"[HEALTHY CONNECTION]\n");
-    
-    //PREPARING STATEMENT
-    if (dpiConn_prepareStmt(conn, 0, string, strlen(string), NULL, 0, &statement)!=DPI_SUCCESS){
-            printError(context,&error_info);
-            return -1;
-        }
-    else fprintf(stdout,"[STATEMENT SUCCESSFULLY PREPARED]\n");
-    fflush(stdout);
-
-    //EXECUTING STATEMENT
-    if (dpiStmt_execute(statement, DPI_MODE_EXEC_DEFAULT, NULL) != DPI_SUCCESS){
-        printError(context,&error_info);
+    if(statement_exec_routine(conn,context,user_SQL)<0){
+        printf("Unable to perform statement exec routine.\n");
         return -1;
     }
-    else fprintf(stdout,"[STATEMENT SUCCESSFULLY EXECUTED]\n");
-    fflush(stdout);
-
-    //COMMITTING CHANGES
-    if (dpiConn_commit(conn) < 0){
-        printError(context,&error_info);
-        return -1;
-    }
-    else fprintf(stdout,"[COMMIT WAS SUCCESSFUL]\n");
-    
-    //CLEANING UP 
-    dpiStmt_release(statement);
+    free(user_SQL);
     
     return 0;
 }
@@ -232,8 +325,11 @@ int main(int argc, char** argv){
                 printf("Unable to execute statement.\n");
             }
         }
-
-        if(choice==2){}
+        if(choice==2){
+            if(import_from_file(conn,context)==-1){
+                printf("Unable to import statement.\n");
+            }
+        }
         if(choice==3){
             if(dpiConn_ping(conn)==DPI_FAILURE){
                 fprintf(stderr,"[Connection is not healthy]\n");
