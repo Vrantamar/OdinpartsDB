@@ -179,15 +179,15 @@ int import_from_file(dpiConn *conn, dpiContext *context){
                 j=i;
                 FLAG_1=TRUE;
             }
-            //CHECK IF THE ";" IS IN A STRING->this means cheching it the occurrencies of \' before it are odd or even. 
+            //CHECK IF THE ";" IS IN A STRING->this means cheching it the occurrences of \' before it are odd or even. 
             if(FLAG_1){
-                int occurrencies=0;
+                int occurrences=0;
                 for(i=0;i<j;i++){
                     if(buffer[i]=='\''){
-                        occurrencies++;
+                        occurrences++;
                     }
                 }
-                if(occurrencies%2!=0){
+                if(occurrences%2!=0){
                     //; is inside a string-> fake positive
                     FLAG_1=FALSE;
                 }
