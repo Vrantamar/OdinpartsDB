@@ -15,19 +15,36 @@ To generate the DB, simply run the masterfile in your MySQL environment.
 
 ### Update Jan 2023
 Project has been selected to be translated for use in a ORACLE PDB, coupled with development of ODPI-C applicatives to operate transactions on the DB.
-A docker container running an Oracle database, is now required to run the code successfully. Bear in mind that since you may have configured your docker container to run with different networking options, the connection string `#define CONN_STRING "172.17.0.2:1521/XEPDB1"` might be different.
+A docker container running an Oracle database, is now required to run the code successfully. Bear in mind that since you may have configured your docker container to run with different networking options, the connection string :
+```
+#define CONN_STRING "172.17.0.2:1521/XEPDB1"
+```
+might be different.
 Also, in order to run the code, Oracle Instant Client must be installed on the Linux system. In addition, the odpi-c library must be compiled.
 Furthermore, it is required to export the value of the shell variable `LD_LIBRARY_PATH` appending the location of the builded library and the instant client install location.
 For example:
-`export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path_to_folder/odpi-main/lib:/opt/oracle/instantclient_21_8`
+```
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path_to_folder/odpi-main/lib:/opt/oracle/instantclient_21_8
+```
 
 To compile the code, simply edit the following commands to suit your needs:
 
-`cd /path_to_build/build`
-
-`gcc -o client ../src/client.c -I/path_to_folder/odpi-main/include -L/path_to_folder/odpi-main/lib -lodpic`
+```
+cd /path_to_build/build
+gcc -o client ../src/client.c -I/path_to_folder/odpi-main/include -L/path_to_folder/odpi-main/lib -lodpic
+```
 
 #### Changelog
 14-Jan-2023: client executable can successfully connect to docker instance of an Oracle21XE database.
+20-Jan-2023: client executeble can successfully execute and commit statement taken from user input.
+
+#### To Do:
+- [x] successfully execute a string statement.
+- [x] create debug menu to navigate between importing statements from file or writing them on the console.
+- [x] execute statements written from console.
+- [ ] retrieve DB output and show content.
+- [ ] complete file I/O to automate SQL statement execution.
+- [ ] add console log in capabilities (optional).
+
 
 --Akvarion
