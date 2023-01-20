@@ -88,10 +88,39 @@ int str_cut(char *str, int begin, int len)
     return len;
 }
 
+int examining_data(dpiStmt *statement, dpiConn *conn, dpiContext *context, dpiData *col_value, dpiVar *var){
+    dpiQueryInfo *info;
+    int column=1;
+    
+    if(dpiStmt_define(statement,column,var)){
+        printError(context,&error_info);
+        return -1;
+    }
+    
+    //populate metadata struct
+    if(dpiStmt_getQueryInfo(statement,column,info)!=DPI_SUCCESS){
+        printError(context,&error_info);
+        return -1;
+    }
+    //Sorting data
+    if(dpiConn_newVar(conn,info->typeInfo.oracleTypeNum,info->typeInfo.defaultNativeTypeNum,1,info->typeInfo.clientSizeInBytes,1,0,info->typeInfo.objectType,&var,&col_value)!=DPI_SUCCESS){
+        printError(context,&error_info);
+        return -1;
+    }
+    
+    return 0;
+}
+
+//Routine to execute the SQL_string query
 int statement_exec_routine(dpiConn *conn, dpiContext *context, char *SQL_string){
     dpiStmt *statement;
+    dpiData *col_value;
+    dpiVar *var;
     uint32_t bufferRowIndex;
+    dpiNativeTypeNum nativeTypeNum;
     int found;
+
+
     //CHECK IF CONNECTION IS HEALTHY
     if(dpiConn_ping(conn)==DPI_FAILURE){
         fprintf(stderr,"[Connection is not healthy]\n");
@@ -106,7 +135,7 @@ int statement_exec_routine(dpiConn *conn, dpiContext *context, char *SQL_string)
     else fprintf(stdout,"[STATEMENT SUCCESSFULLY PREPARED]\n");
     fflush(stdout);
     
-        //EXECUTING STATEMENT
+    //EXECUTING STATEMENT
     if (dpiStmt_execute(statement, DPI_MODE_EXEC_DEFAULT, NULL) != DPI_SUCCESS){
         printError(context,&error_info);
         return -1;
@@ -116,12 +145,16 @@ int statement_exec_routine(dpiConn *conn, dpiContext *context, char *SQL_string)
     
     //To do: loop to display db stdout response messages and rows.
     while (0) {
+        int counter=1;
         if (dpiStmt_fetch(statement, &found, &bufferRowIndex) < 0){
             printError(context,&error_info);
             return -1;
             }
-        if (!found)
-            break;
+        if (!found)    break;
+        if(examining_data(statement, conn, context, col_value,var)<0){
+            printf("%.s",col_value->value.asBytes.length,col_value->value.asBytes.ptr);
+        }
+            
     }
     
     
@@ -206,7 +239,7 @@ int import_from_file(dpiConn *conn, dpiContext *context){
         strcat(SQL_string[statement_counter],buffer);
 
         if(FLAG_1){
-            //changing memory pointer in memory, allocating new element...
+            //changing memory pointer, allocating new element...
             statement_counter++;
             SQL_string[statement_counter]=malloc(sizeof(char));
             //RESET SIGNAL
@@ -236,17 +269,14 @@ int statement_creation(dpiConn *conn, dpiContext *context){
     fscanf(stdin,"%d", &choice);
 
     if(choice==0) return 1;
-    // if(choice==1){
-    //     string="INSERT INTO \"ODINPARTS\".UTENTE (USERNAME,NOME,COGNOME,MAIL,PASSWORD,VOTO_SPED,VOTO_COMM,VOTO_DESC,FEEDBACK_N,REGISTRATO) VALUES ('aliza57','Darius','Mills','hickle.magnus@example.net','be0f4d2519c472badefc','6.45','7.00','5.00','5','03-DEC-94')";
-    //     FLAG_1=FALSE;
-    // }
 
-    fprintf(stdout,"Insert your SQL statement. Enter no characters to end the input.\n");
+    fprintf(stdout,"Insert your SQL statement. Enter no characters to end the input.\n\n");
     fflush(stdout);
 
     //consuming buffer newline, because fscanf and fgets differences.
     while ((getchar()) != '\n');
-    
+
+    //Getting user_input SQL queries
     while(FLAG && FLAG_1){
         if(fgets(buffer,(int)sizeof(buffer),stdin)==NULL){
             perror("Input Error\n");
@@ -265,9 +295,10 @@ int statement_creation(dpiConn *conn, dpiContext *context){
     }
 
     if(statement_exec_routine(conn,context,user_SQL)<0){
-        printf("Unable to perform statement exec routine.\n");
+        printf("Unable to perform statement execution routine.\n");
         return -1;
     }
+    
     free(user_SQL);
     
     return 0;
