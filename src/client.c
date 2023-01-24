@@ -88,26 +88,21 @@ int str_cut(char *str, int begin, int len)
     return len;
 }
 
-int examining_data(dpiStmt *statement, dpiConn *conn, dpiContext *context, dpiData *col_value, dpiVar *var){
+int examining_data(dpiStmt *statement, dpiConn *conn, dpiContext *context, dpiData *col_value, dpiVar *var,int *column){
     dpiQueryInfo *info;
-    int column=1;
-    
-    if(dpiStmt_define(statement,column,var)){
-        printError(context,&error_info);
-        return -1;
-    }
-    
+
     //populate metadata struct
-    if(dpiStmt_getQueryInfo(statement,column,info)!=DPI_SUCCESS){
+    if(dpiStmt_getQueryInfo(statement,*column,info)!=DPI_SUCCESS){
         printError(context,&error_info);
         return -1;
     }
+    else printf("get query info successfull\n");
     //Sorting data
     if(dpiConn_newVar(conn,info->typeInfo.oracleTypeNum,info->typeInfo.defaultNativeTypeNum,1,info->typeInfo.clientSizeInBytes,1,0,info->typeInfo.objectType,&var,&col_value)!=DPI_SUCCESS){
         printError(context,&error_info);
         return -1;
     }
-    
+    else printf("new var successfull\n");
     return 0;
 }
 
@@ -117,9 +112,10 @@ int statement_exec_routine(dpiConn *conn, dpiContext *context, char *SQL_string)
     dpiData *col_value;
     dpiVar *var;
     uint32_t bufferRowIndex;
+    uint32_t numQueryColumns=0;
     dpiNativeTypeNum nativeTypeNum;
     int found;
-
+    bool FLAG_Q=FALSE;
 
     //CHECK IF CONNECTION IS HEALTHY
     if(dpiConn_ping(conn)==DPI_FAILURE){
@@ -130,34 +126,52 @@ int statement_exec_routine(dpiConn *conn, dpiContext *context, char *SQL_string)
 
     //PREPARING STATEMENT
     if (dpiConn_prepareStmt(conn, 0, SQL_string, strlen(SQL_string), NULL, 0, &statement)!=DPI_SUCCESS){
-
-        }
+        printError(context,&error_info);
+        return -1;
+    }
     else fprintf(stdout,"[STATEMENT SUCCESSFULLY PREPARED]\n");
     fflush(stdout);
     
+    //GET NUMBER OF COLUMNS
+
     //EXECUTING STATEMENT
-    if (dpiStmt_execute(statement, DPI_MODE_EXEC_DEFAULT, NULL) != DPI_SUCCESS){
+    if (dpiStmt_execute(statement, DPI_MODE_EXEC_DEFAULT, &numQueryColumns) != DPI_SUCCESS){
         printError(context,&error_info);
         return -1;
     }
     else fprintf(stdout,"[STATEMENT SUCCESSFULLY EXECUTED]\n");
     fflush(stdout);
     
+    if (dpiStmt_fetch(statement, &found, &bufferRowIndex) < 0){
+        printError(context,&error_info);
+        return -1;
+        }
+    else printf("fetch was successful.\n");    
+
+    //seg fault here. flushing the stdout 
+
     //To do: loop to display db stdout response messages and rows.
-    while (0) {
-        int counter=1;
+    while (found==1) {
+        int counter=(int)numQueryColumns;
+        printf("here %d\n", counter);
+        //printing query result
+        for(int i=1;i<=counter;i++){
+            if(dpiStmt_define(statement,i,var)!=DPI_SUCCESS){
+                printError(context,&error_info);
+                return -1;
+            }
+            if(examining_data(statement, conn, context, col_value,var,&i)<0){
+                return -1;
+            }
+            else printf("%.*s",col_value->value.asBytes.length,col_value->value.asBytes.ptr);
+        }
+        //fetching new row
         if (dpiStmt_fetch(statement, &found, &bufferRowIndex) < 0){
             printError(context,&error_info);
             return -1;
-            }
-        if (!found)    break;
-        if(examining_data(statement, conn, context, col_value,var)<0){
-            printf("%.s",col_value->value.asBytes.length,col_value->value.asBytes.ptr);
-        }
-            
+        }    
     }
-    
-    
+
     //COMMITTING CHANGES
     if (dpiConn_commit(conn) < 0){
         printError(context,&error_info);
@@ -167,8 +181,7 @@ int statement_exec_routine(dpiConn *conn, dpiContext *context, char *SQL_string)
     
     //CLEANING UP 
     dpiStmt_release(statement);
-
-
+    
     return 0;
 }
 
