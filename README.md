@@ -14,8 +14,8 @@ This is intended mostly as a reference or a DB to play around with for new stude
 To generate the DB, simply run the masterfile in your MySQL environment.
 
 ### Update Jan 2023
-Project has been selected to be translated for use in a ORACLE PDB, coupled with development of ODPI-C applicatives to operate transactions on the DB.
-A docker container running an Oracle database, is now required to run the code successfully. Bear in mind that since you may have configured your docker container to run with different networking options, the connection string :
+Project has been selected to be translated for use in a ORACLE PDB, coupled with development of an ODPI-C applicative to operate transactions on the DB.
+A docker container running an Oracle database is now required to run the code successfully. Bear in mind that since you may have configured your docker container to run with different networking options, the connection string :
 ```
 #define CONN_STRING "172.17.0.2:1521/XEPDB1"
 ```
