@@ -42,9 +42,10 @@ gcc -o client ../src/client.c -I/path_to_folder/odpi-main/include -L/path_to_fol
 - [x] successfully execute a string statement.
 - [x] create debug menu to navigate between importing statements from file or writing them on the console.
 - [x] execute statements written from console.
-- [ ] retrieve DB output and show content.
+- [x] retrieve DB output and show content.
 - [ ] complete file I/O to automate SQL statement execution.
 - [ ] add console log in capabilities (optional).
+- [ ] clean up code
 
 
 --Akvarion
