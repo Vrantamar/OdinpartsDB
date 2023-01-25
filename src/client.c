@@ -92,17 +92,15 @@ int examining_data(dpiStmt *statement, dpiConn *conn, dpiContext *context, dpiDa
     dpiQueryInfo *info;
 
     //populate metadata struct
-    if(dpiStmt_getQueryInfo(statement,*column,info)!=DPI_SUCCESS){
-        printError(context,&error_info);
-        return -1;
-    }
-    else printf("get query info successfull\n");
+
     //Sorting data
     if(dpiConn_newVar(conn,info->typeInfo.oracleTypeNum,info->typeInfo.defaultNativeTypeNum,1,info->typeInfo.clientSizeInBytes,1,0,info->typeInfo.objectType,&var,&col_value)!=DPI_SUCCESS){
         printError(context,&error_info);
         return -1;
     }
     else printf("new var successfull\n");
+
+
     return 0;
 }
 
@@ -148,22 +146,31 @@ int statement_exec_routine(dpiConn *conn, dpiContext *context, char *SQL_string)
         }
     else printf("fetch was successful.\n");    
 
-    //seg fault here. flushing the stdout 
-
     //To do: loop to display db stdout response messages and rows.
-    while (found==1) {
+    while (found==1){
+        dpiQueryInfo info;
         int counter=(int)numQueryColumns;
-        printf("here %d\n", counter);
+        printf("Columns retrieved: %d\n", counter);
+        printf("[FETCH RESULTS]\n");
+        fprintf(stdout,"‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\n");
         //printing query result
         for(int i=1;i<=counter;i++){
+            if(dpiStmt_getQueryInfo(statement,i,&info)!=DPI_SUCCESS){
+                printError(context,&error_info);
+                return -1;
+            }
+
+            if(dpiConn_newVar(conn,info.typeInfo.oracleTypeNum,info.typeInfo.defaultNativeTypeNum,1,info.typeInfo.clientSizeInBytes,1,0,info.typeInfo.objectType,&var,&col_value)!=DPI_SUCCESS){
+                printError(context,&error_info);
+                return -1;
+            }
+
             if(dpiStmt_define(statement,i,var)!=DPI_SUCCESS){
                 printError(context,&error_info);
                 return -1;
             }
-            if(examining_data(statement, conn, context, col_value,var,&i)<0){
-                return -1;
-            }
-            else printf("%.*s",col_value->value.asBytes.length,col_value->value.asBytes.ptr);
+            
+            printf("%.*s \n",col_value->value.asBytes.length,col_value->value.asBytes.ptr);
         }
         //fetching new row
         if (dpiStmt_fetch(statement, &found, &bufferRowIndex) < 0){
