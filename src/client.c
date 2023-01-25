@@ -8,6 +8,8 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <stdint.h>
+#include <inttypes.h>
 
 #define FALSE 0
 #define TRUE 1
@@ -112,6 +114,8 @@ int statement_exec_routine(dpiConn *conn, dpiContext *context, char *SQL_string)
     uint32_t bufferRowIndex;
     uint32_t numQueryColumns=0;
     dpiNativeTypeNum nativeTypeNum;
+    dpiQueryInfo info;
+
     int found;
     bool FLAG_Q=FALSE;
 
@@ -139,39 +143,68 @@ int statement_exec_routine(dpiConn *conn, dpiContext *context, char *SQL_string)
     }
     else fprintf(stdout,"[STATEMENT SUCCESSFULLY EXECUTED]\n");
     fflush(stdout);
+
+    //reallocating memory for array of structs
     
+
     if (dpiStmt_fetch(statement, &found, &bufferRowIndex) < 0){
         printError(context,&error_info);
         return -1;
         }
     else printf("fetch was successful.\n");    
-
+   
+   // printf("Columns retrieved: %d\n", (int)numQueryColumns);
+    printf("[FETCH RESULTS]\n");
+    fprintf(stdout,"‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\n");
     //To do: loop to display db stdout response messages and rows.
+
     while (found==1){
-        dpiQueryInfo info;
-        int counter=(int)numQueryColumns;
-        printf("Columns retrieved: %d\n", counter);
-        printf("[FETCH RESULTS]\n");
-        fprintf(stdout,"‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\n");
+        //populating metadata structure
+        char buffer[64];
         //printing query result
-        for(int i=1;i<=counter;i++){
+        for(int i=1;i<=(int)numQueryColumns;i++){
             if(dpiStmt_getQueryInfo(statement,i,&info)!=DPI_SUCCESS){
                 printError(context,&error_info);
                 return -1;
             }
-
-            if(dpiConn_newVar(conn,info.typeInfo.oracleTypeNum,info.typeInfo.defaultNativeTypeNum,1,info.typeInfo.clientSizeInBytes,1,0,info.typeInfo.objectType,&var,&col_value)!=DPI_SUCCESS){
+            if(dpiStmt_getQueryValue(statement,i,&info.typeInfo.defaultNativeTypeNum, &col_value)){
                 printError(context,&error_info);
                 return -1;
             }
-
-            if(dpiStmt_define(statement,i,var)!=DPI_SUCCESS){
-                printError(context,&error_info);
-                return -1;
+            //check su col_value per stamparli in modo corretto
+            switch (info.typeInfo.defaultNativeTypeNum){
+                case DPI_NATIVE_TYPE_BOOLEAN:
+                    fprintf(stdout,"%d\t",(int)col_value->value.asBoolean);
+                    break;
+                case DPI_NATIVE_TYPE_BYTES:
+                    fprintf(stdout,"%.*s\t",col_value->value.asBytes.length,col_value->value.asBytes.ptr);
+                    break;
+                case DPI_NATIVE_TYPE_DOUBLE:
+                    fprintf(stdout,"%.2f\t",col_value->value.asDouble);
+                    break;
+                case DPI_NATIVE_TYPE_FLOAT:
+                    fprintf(stdout,"%.2f\t",col_value->value.asFloat);
+                    break;    
+                case DPI_NATIVE_TYPE_INT64:
+                    fprintf(stdout,"%" PRIx64 "\t",col_value->value.asInt64);
+                    break;
+                case DPI_NATIVE_TYPE_INTERVAL_DS:
+                    fprintf(stdout,"%" PRIx32 "|""%" PRIx32 "|""%" PRIx32 "|""%" PRIx32 "|""%" PRIx32 "\t",col_value->value.asIntervalDS.days,col_value->value.asIntervalDS.hours,col_value->value.asIntervalDS.minutes,col_value->value.asIntervalDS.seconds,col_value->value.asIntervalDS.fseconds);
+                    break;
+                case DPI_NATIVE_TYPE_INTERVAL_YM:
+                    fprintf(stdout,"%" PRIx32 "|""%" PRIx32 "\t",col_value->value.asIntervalYM.months,col_value->value.asIntervalYM.years);
+                    break;
+                case DPI_NATIVE_TYPE_NULL:
+                    break;
+                case DPI_NATIVE_TYPE_TIMESTAMP:
+                    fprintf(stdout,"%" PRIu8 "|""%" PRIu8 "|""%d\t",col_value->value.asTimestamp.day,col_value->value.asTimestamp.month,col_value->value.asTimestamp.year);
+                    break;     
+                default:
+                    break;
             }
             
-            printf("%.*s \n",col_value->value.asBytes.length,col_value->value.asBytes.ptr);
         }
+        printf("\n");
         //fetching new row
         if (dpiStmt_fetch(statement, &found, &bufferRowIndex) < 0){
             printError(context,&error_info);
