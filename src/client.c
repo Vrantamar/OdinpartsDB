@@ -92,6 +92,7 @@ int str_cut(char *str, int begin, int len){
     return len;
 }
 
+//not used
 int examining_data(dpiStmt *statement, dpiConn *conn, dpiContext *context, dpiData *col_value, dpiVar *var,int *column){
     dpiQueryInfo *info;
 
@@ -136,7 +137,6 @@ int statement_exec_routine(dpiConn *conn, dpiContext *context, char *SQL_string,
     else fprintf(stdout,"[STATEMENT SUCCESSFULLY PREPARED]\n");
     fflush(stdout);
     
-    //GET NUMBER OF COLUMNS
 
     //EXECUTING STATEMENT
     if (dpiStmt_execute(statement, DPI_MODE_EXEC_DEFAULT, &numQueryColumns) != DPI_SUCCESS){
@@ -308,6 +308,7 @@ int statement_exec_wrapper(dpiConn *conn, dpiContext *context, char *user_SQL){
                 return -1;
             }
             free(s);
+            fclose(fp);
         }
         else{
             if(statement_exec_routine(conn,context,user_SQL,FALSE,NULL)<0){
@@ -321,12 +322,13 @@ int statement_exec_wrapper(dpiConn *conn, dpiContext *context, char *user_SQL){
 // I/O automation function
 int import_from_file(dpiConn *conn, dpiContext *context){
     FILE *fp;
-    char path[32], buffer[64], **SQL_string=malloc(sizeof(char));
-    int choice=-1, size=0, statement_counter=0;
+    char path[32], buffer[512], **SQL_string=malloc(sizeof(char));
+    int choice=-1, size=0,statement_counter=0;
+
     bool FLAG=TRUE, FLAG_1=FALSE;
 
     SQL_string[statement_counter]=malloc(sizeof(char));
-    
+    /*     
     fprintf(stdout,"________________________\n");
     fprintf(stdout,"|| Import statements  ||\n");
     fprintf(stdout,"‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\n");
@@ -335,67 +337,46 @@ int import_from_file(dpiConn *conn, dpiContext *context){
     fscanf(stdin,"%lc", &choice);
     while ((getchar()) != '\n');
     if(choice==0) return 1;
-    
+    */
+
     fprintf(stdout,"Insert the path to your file containing your SQL queries.\nIf the file is within the local directory, provide the name file only.\n~:");
     
     fscanf(stdin,"%s",path);
     
     printf("you have inserted: %s\n",path);
-
+    //this fopen hangs.
     if((fp=fopen(path,"r"))==NULL){
         printf("[ERROR]\nFile does not exists/Wrong path.\n");
         return -1;
     }
-    else printf("[OK]");
+    else {
+        fprintf(stdout,"[OK]");
+        fflush(stdout);
+    }
     //consuming buffer newline, because fscanf and fgets differences.
     
     while(fgets(buffer,(int)sizeof(buffer),fp)!=NULL){
-        int i,j=0;
-        //checking if this is the last line of a SQL statement
-        for(i=0;i<strlen(buffer);i++){
-            //have i reached the end of the SQL query? If so, set the flag.
-            if(buffer[i]==';'){
-                j=i;
-                FLAG_1=TRUE;
-            }
-            //CHECK IF THE ";" IS IN A STRING->this means cheching it the occurrences of \' before it are odd or even. 
-            if(FLAG_1){
-                int occurrences=0;
-                for(i=0;i<j;i++){
-                    if(buffer[i]=='\''){
-                        occurrences++;
-                    }
-                }
-                if(occurrences%2!=0){
-                    //; is inside a string-> fake positive. Resetting flag
-                    FLAG_1=FALSE;
-                }
-            }
-        }
-        
-        size=size+strlen(buffer);
+        fprintf(stdout,"%s\n",buffer);
+        fflush(stdout);
 
-        if(FLAG_1){
-            //reached the end of the query, need to remove the ";".
-            //size of what to append and allocate changes accordingly
-            str_cut(buffer,j-1,-1);
-            size--;
-        }
+        size=strlen(buffer);
+        //reached the end of the query, need to remove the ";".
+        //size of what to append and allocate changes accordingly
+        str_cut(buffer,size-2,-1);
+        size--;
         
-        SQL_string[statement_counter]=realloc(SQL_string[statement_counter],size*sizeof(char));
-        strcat(SQL_string[statement_counter],buffer);
+        SQL_string[statement_counter]=realloc(SQL_string[statement_counter],size);
+        //memset(SQL_string[statement_counter],48,size*sizeof(char));
+        strcpy(SQL_string[statement_counter],buffer);
 
-        if(FLAG_1){
-            //changing memory pointer, allocating new element...
-            statement_counter++;
-            SQL_string[statement_counter]=malloc(sizeof(char));
-            //RESET SIGNAL
-            FLAG_1=FALSE;
-        }
+        //changing memory pointer, allocating new element...
+        statement_counter++;
+        SQL_string[statement_counter]=malloc(sizeof(char));
+        
     }
     //I have all the statements, it's time to run them all.
-
-    for(int i=0;i<=statement_counter;i++){
+    //not using last element, since it will have only one char with rubbish
+    for(int i=0;i<statement_counter;i++){
         if(statement_exec_wrapper(conn,context,SQL_string[i])<0){
             printf("Unable to run Wrapper.\n");
             return -1;

@@ -43,7 +43,8 @@ gcc -o client ../src/client.c -I/path_to_folder/odpi-main/include -L/path_to_fol
 - [x] create debug menu to navigate between importing statements from file or writing them on the console.
 - [x] execute statements written from console.
 - [x] retrieve DB output and show content.
-- [ ] complete file I/O to automate SQL statement execution.
+- [x] complete file I/O to automate SQL statement execution.
+- [ ] convert executable to run with parameters 
 - [ ] add console log in capabilities (optional).
 - [ ] clean up code
 
