@@ -37,6 +37,7 @@ gcc -o client ../src/client.c -I/path_to_folder/odpi-main/include -L/path_to_fol
 #### Changelog
 14-Jan-2023: client executable can successfully connect to docker instance of an Oracle21XE database.
 20-Jan-2023: client executeble can successfully execute and commit statement taken from user input.
+21-Mar-2023: client executable development on hold.
 
 #### To Do:
 - [x] successfully execute a string statement.
@@ -44,6 +45,7 @@ gcc -o client ../src/client.c -I/path_to_folder/odpi-main/include -L/path_to_fol
 - [x] execute statements written from console.
 - [x] retrieve DB output and show content.
 - [x] complete file I/O to automate SQL statement execution.
+- [ ] fix the application from smashing the stack.
 - [ ] convert executable to run with parameters 
 - [ ] add console log in capabilities (optional).
 - [ ] clean up code
